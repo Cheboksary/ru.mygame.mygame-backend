@@ -7,14 +7,14 @@ import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.serialization.json.Json
 import ru.mygame.Connection
-import ru.mygame.models.Player
 import ru.mygame.models.PlayerState
-import ru.mygame.utilities.Settings
+import ru.mygame.utilities.Constants
+import ru.mygame.utilities.InternalExceptions
+import ru.mygame.utilities.getLeader
 import java.time.Duration
-import java.util.Collections
 
 fun Application.configureSockets() {
-    install(WebSockets){
+    install(WebSockets) {
         pingPeriod = Duration.ofSeconds(15)
         timeout = Duration.ofSeconds(15)
         maxFrameSize = Long.MAX_VALUE
@@ -22,38 +22,90 @@ fun Application.configureSockets() {
         contentConverter = KotlinxWebsocketSerializationConverter(Json)
     }
     routing {
-        val connections = Collections.synchronizedSet<Connection?>(LinkedHashSet())
-        webSocket ("/lobby") {
-            val connectionId = receiveDeserialized<String?>() // ввод кода комнаты или null при создании
-            //connectionId = call.parameters["connectionId"]
-            val playerName = receiveDeserialized<String>() // ввод имени игрока
-            val player = Player(playerName)
-            var thisConnection = connections.find{it.connectionId == connectionId}
-            if (connectionId != null && thisConnection == null){ // проверка на существование комнаты с указанным номером
-                this.close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "unavailable lobby id"))
-            }
-            if ( thisConnection == null ) { // создание новой комнаты или подключение к существующей
-                thisConnection = Connection(this, connectionId)
-                player.state = PlayerState.LEADER
-                thisConnection.players[this] = player
-                connections += thisConnection
-            } else
-                thisConnection.players[this] = player
-            sendSerialized("lobbyId: ${thisConnection.connectionId}")
-            thisConnection.players.forEach { (it.key as WebSocketServerSession).sendSerialized(thisConnection.players.values) }
-
+        webSocket("/") {
+            var thisLobby: Connection? = null
             try {
-                for (frame in incoming) {
-                    connections.forEach {
-                        (it.session as WebSocketServerSession).sendSerialized(player)
+                val connectionId = call.parameters["lobby_ID"]
+                val playerName = call.parameters["name"] ?: throw InternalExceptions.PlayerNameExpectedException()
+                send("$connectionId || $playerName ") // echo
+                thisLobby = Connection.getLobby(this, connectionId)
+                sendSerialized("Connected to lobby id ${thisLobby.lobbyId}") // echo
+                val thisPlayer = thisLobby.addPlayer(playerName, this)
+                thisLobby.getListOfPlayers() // echo
+                    .forEach { (it.session as WebSocketServerSession).sendSerialized(thisLobby.getListOfPlayers()) } // cast to WebSocketServerSession is required for serialization
+
+                if (thisPlayer.state == PlayerState.LEADER) {                         ////
+                    for (frame in incoming) {
+                        frame as? Frame.Text ?: continue
+                        if (frame.toString() == "start") {     ////
+                            thisLobby.gameIsStarted = true
+                            thisLobby.getListOfPlayers()
+                                .forEach { (it.session as WebSocketServerSession).sendSerialized("Started") }
+                            break
+                        }
+                    }
+                } else
+                    while(!thisLobby.gameIsStarted) {                                 ////     sketches
+                        continue
+                    }
+
+                while (thisLobby.round <= Constants.NUMBER_OF_ROUNDS) {
+                    sendSerialized(thisLobby.round)
+                    if (thisPlayer.state == PlayerState.LEADER) { // LEADER
+                        thisLobby.round++
+                        val question = thisLobby.getQuestion()
+                        thisPlayer.answers.add(question)
+                        sendSerialized(question)
+                    }
+                    if (thisPlayer.state == PlayerState.LIAR) // LIAR
+                        for (frame in incoming){
+                            if (thisLobby.getListOfPlayers().first().answers[thisLobby.round-1].isNotEmpty()) {
+                                sendSerialized(thisLobby.getListOfPlayers().first().answers[thisLobby.round - 1])
+                                break
+                            }
+                        }
+
+                    for (frame in incoming) { // PLAYER , LEADER , LIAR
+                        frame as? Frame.Text ?: continue
+                        if (thisLobby.getListOfPlayers().all { it.answers.size == thisLobby.round })
+                            break
+                        if (thisPlayer.state == PlayerState.LEADER)
+                            continue
+                        if (thisPlayer.answers.size == thisLobby.round)
+                            continue
+                        thisPlayer.answers.add(frame.toString())
                     }
                 }
-            }
-            catch (e:Exception){
-                println(e.localizedMessage)
-            }
-            finally {
-                connections -= thisConnection
+                thisLobby.getListOfPlayers()
+                    .forEach { (it.session as WebSocketServerSession).sendSerialized(thisLobby.getListOfPlayers()) }
+                thisLobby.gameIsStarted = false
+                thisLobby.round = 0
+                                                                                       //// sketches
+
+            } catch (e: InternalExceptions.PlayerNameExpectedException) {
+                close(
+                    CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Parameter name expected")
+                )
+            } catch (e: InternalExceptions.UnavailableLobbyIdException) {
+                close(
+                    CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Unavailable lobby ID")
+                )
+            } catch (e: InternalExceptions.ConnectingToStartedGameException) {
+                close(
+                    CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "The game is already started")
+                )
+            } catch (e: InternalExceptions.LobbyIsFullException) {
+                close(
+                    CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Lobby is full")
+                )
+            } finally {
+                if (thisLobby?.deletePlayer(this).getLeader() != null)
+                    thisLobby?.getListOfPlayers()!!
+                        .forEach { (it.session as WebSocketServerSession).sendSerialized(thisLobby.getListOfPlayers()) }
+                else {
+                    thisLobby?.getListOfPlayers()!!.forEach { it.session!!.close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Leader left the game")) }
+                    thisLobby.deleteLobby()
+                }
             }
         }
     }

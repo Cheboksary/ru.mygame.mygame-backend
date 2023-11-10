@@ -1,16 +1,39 @@
 package ru.mygame.models
 
+import io.ktor.websocket.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
-enum class PlayerState{
+
+enum class PlayerState {
     LEADER,
     LIAR,
     PLAYER
 }
+
 @Serializable
 data class Player(
     val name: String,
+    var id: Int,
     var state: PlayerState = PlayerState.PLAYER,
     var points: Int = 0,
-    val answers: MutableList<String> = mutableListOf()
-)
+    val answers: MutableList<String> = mutableListOf(),
+    @Transient
+    val session: DefaultWebSocketSession? = null
+) {
+    constructor(name: String, id: Int, session: DefaultWebSocketSession) : this(
+        name = name,
+        id = id,
+        state = PlayerState.PLAYER,
+        points = 0,
+        answers = mutableListOf(),
+        session = session
+    )
+    constructor(player: Player, round: Int): this(
+        name = player.name,
+        id = player.id,
+        state = PlayerState.PLAYER,
+        points = 0,
+        answers = mutableListOf(player.answers[round-1])
+    )
+}

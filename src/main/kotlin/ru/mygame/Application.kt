@@ -7,8 +7,6 @@ import ru.mygame.plugins.*
 
 fun main() {
 
-    //Database.connect("jdbc:postgresql://localhost:5432/mygame","org.postgresql.Driver","postgres","hfrhfr")
-
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
         .start(wait = true)
 }
