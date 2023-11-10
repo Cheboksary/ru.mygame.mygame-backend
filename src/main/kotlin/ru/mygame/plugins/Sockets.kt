@@ -28,7 +28,7 @@ fun Application.configureSockets() {
                 val connectionId = call.parameters["lobby_ID"]
                 val playerName = call.parameters["name"] ?: throw InternalExceptions.PlayerNameExpectedException()
                 send("$connectionId || $playerName ") // echo
-                thisLobby = Connection.getLobby(this, connectionId)
+                thisLobby = Connection.getLobby(connectionId)
                 sendSerialized("Connected to lobby id ${thisLobby.lobbyId}") // echo
                 val thisPlayer = thisLobby.addPlayer(playerName, this)
                 thisLobby.getListOfPlayers() // echo

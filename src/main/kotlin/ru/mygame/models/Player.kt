@@ -29,11 +29,11 @@ data class Player(
         answers = mutableListOf(),
         session = session
     )
-    constructor(player: Player, round: Int): this(
+    constructor(player: Player, numberOfAnswer: Int): this(
         name = player.name,
         id = player.id,
         state = PlayerState.PLAYER,
         points = 0,
-        answers = mutableListOf(player.answers[round-1])
+        answers = mutableListOf(player.answers[numberOfAnswer])
     )
 }

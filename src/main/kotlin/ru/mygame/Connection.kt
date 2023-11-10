@@ -11,13 +11,13 @@ import java.util.concurrent.atomic.AtomicInteger
 
 val lobbies = Collections.synchronizedSet<Connection?>(LinkedHashSet())
 
-class Connection(val session: DefaultWebSocketSession, lobbyId: String? = null) : GamePlay {
+class Connection(lobbyId: String? = null) : GamePlay {
     companion object {
         private val uniqueId = AtomicInteger(0)
-        fun getLobby(session: DefaultWebSocketSession, lobbyId: String?): Connection {
+        fun getLobby(lobbyId: String?): Connection {
             if (lobbyId == null) {
                 //creating new lobby
-                val lobby = Connection(session)
+                val lobby = Connection()
                 lobbies += lobby
                 return lobby
             }
@@ -55,6 +55,7 @@ class Connection(val session: DefaultWebSocketSession, lobbyId: String? = null) 
             players // returning updated set of players
         else null // throw InternalExceptions.PlayerNotFoundException() can be used if needed
     }
+
     fun deletePlayer(session: DefaultWebSocketSession): MutableSet<Player>? {
         return players.find { it.session == session }?.let { deletePlayer(it) }
     }
@@ -80,17 +81,36 @@ class Connection(val session: DefaultWebSocketSession, lobbyId: String? = null) 
 
     override fun finishAndGetResult(): List<MutableSet<Player>> {
         val result = List(Constants.NUMBER_OF_ROUNDS.toInt()) { mutableSetOf<Player>() }
-        var i = 1
-        while (i <= Constants.NUMBER_OF_ROUNDS) {
+        var i = 0
+        while (i < Constants.NUMBER_OF_ROUNDS) {
+            val roundAnswers = mutableSetOf<String>()
+            var liarAnswer = ""
+            var correctAnswer = ""
+            for (player in players) {
+                when (player.state) {
+                    PlayerState.LEADER -> correctAnswer = player.answers[i]
+                    PlayerState.LIAR -> liarAnswer = player.answers[i]
+                    else -> roundAnswers.add(player.answers[i])
+                }
+            }
+            if (roundAnswers.size == 1)
+                when (roundAnswers.toString()) {
+                    correctAnswer -> for (player in players)
+                        if (player.state != PlayerState.LIAR)
+                            player.points++
+                    liarAnswer -> for (player in players)
+                        this.getLiar()!!.points++
+                }
             for (player in players)
-                result[i-1].add(Player(player, i))
-            //todo compute score here
+                result[i].add(Player(player, i))
             i++
         }
-        return result
+        gameIsStarted = false
+        round = 0
+        return result // returning a table: in a row list of players where each player with only one answer, amount of rows is a NUMBER_OF_ROUNDS, final score is in a last row
     }
 
-    override fun setAnswer() {
-        TODO("Not yet implemented")
+    override fun DefaultWebSocketSession.setAnswer(answer: String) {
+        players.find { it.session == this }!!.answers.add(answer.lowercase().trimMargin())
     }
 }
