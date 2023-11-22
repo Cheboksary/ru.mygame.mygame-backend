@@ -110,7 +110,7 @@ class Connection(lobbyId: String? = null) : GamePlay {
         return result // returning a table: in a row list of players where each player with only one answer, amount of rows is a NUMBER_OF_ROUNDS, final score is in a last row
     }
 
-    override fun DefaultWebSocketSession.setAnswer(answer: String) {
-        players.find { it.session == this }!!.answers.add(answer.lowercase().trimMargin())
+    override fun setAnswer(player: Player, answer: String) {
+        players.find { it.session == player.session }!!.answers.add(answer.lowercase().trimMargin())
     }
 }

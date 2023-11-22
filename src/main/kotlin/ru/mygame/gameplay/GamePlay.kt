@@ -23,5 +23,5 @@ interface GamePlay {
         return Dictionary.getSomeString()
     }
 
-    fun DefaultWebSocketSession.setAnswer(answer: String)
+    fun setAnswer(player: Player, answer: String)
 }

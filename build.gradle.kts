@@ -8,7 +8,7 @@ val postgresql_version: String by project
 plugins {
     kotlin("jvm") version "1.9.0"
     id("io.ktor.plugin") version "2.3.2"
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.6.10"
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
 }
 
 group = "ru.mygame"
@@ -30,6 +30,7 @@ dependencies {
     implementation("io.ktor:ktor-server-netty-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-websockets:$ktor_version")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.1")
     //implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
     //implementation("org.jetbrains.exposed:exposed-dao:$exposed_version")
     //implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")

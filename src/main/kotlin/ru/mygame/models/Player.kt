@@ -29,7 +29,7 @@ data class Player(
         answers = mutableListOf(),
         session = session
     )
-    constructor(player: Player, numberOfAnswer: Int): this(
+    constructor(player: Player, numberOfAnswer: Int) : this(
         name = player.name,
         id = player.id,
         state = PlayerState.PLAYER,
