@@ -5,12 +5,10 @@ import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromJsonElement
 import ru.mygame.Connection
-import ru.mygame.models.MsgType.*
-import ru.mygame.models.WebSocketMessage
+import ru.mygame.models.IncomingMsgType.*
+import ru.mygame.models.WSIncomingMessage
 import ru.mygame.utilities.*
 import java.time.Duration
 
@@ -36,16 +34,16 @@ fun Application.configureSockets() {
 
                 for (frame in incoming) {
                     frame as? Frame.Text ?: continue
-                    val msg: WebSocketMessage
+                    val msg: WSIncomingMessage
                     try {
-                        msg = Json.decodeFromString<WebSocketMessage>(frame.toString())
+                        msg = Json.decodeFromString<WSIncomingMessage>(frame.toString())
                     } catch (e: IllegalArgumentException) {
                         println("Decode message problem: $e")
                         continue
                     }
                     when (msg.type) {
                         //todo example:
-                        START -> {
+                        GAME_START -> {
                             TODO()
                         }
                         ANSWER -> {
@@ -54,6 +52,9 @@ fun Application.configureSockets() {
 
                         READY -> TODO()
                         NOT_READY -> TODO()
+                        REFRESH_QUESTION -> TODO()
+                        EARLY_ANSWER -> TODO()
+                        VOTE_KICK -> TODO()
                     }
                 }
                 /*
