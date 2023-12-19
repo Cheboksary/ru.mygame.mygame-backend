@@ -29,10 +29,44 @@ class Connection(lobbyId: String? = null) : GamePlay {
         }
     }
 
-    val lobbyId = lobbyId ?: uniqueId.getAndIncrement().toString()
+    private val lobbyId = lobbyId ?: uniqueId.getAndIncrement().toString()
     private val players = Collections.synchronizedSet<Player>(LinkedHashSet())
-    var gameIsStarted = false
-    var round = 0
+
+    fun getLobbyId() = lobbyId
+
+    fun getLeader(): Player = players.first()
+
+    fun markPlayerReady(session: DefaultWebSocketSession) {
+        players.find { it.session == session }?.isReady = true
+    }
+
+    fun markPlayerNotReady(session: DefaultWebSocketSession) {
+        players.find { it.session == session }?.isReady = false
+    }
+
+    fun isEveryoneReady(): Boolean {
+        return players.find { !it.isReady } == null
+    }
+
+    private var gameIsStarted = false
+    private var round = 0
+
+    fun isGameStarted() = gameIsStarted
+
+    fun isEveryoneAnswered(): Boolean {
+        for (player in players) {
+            if (player.answers.size <= round)
+                return false
+        }
+        return true
+    }
+
+    fun nextRound(): Boolean {
+        if (round == Constants.NUMBER_OF_ROUNDS)
+            return false
+        round++
+        return true
+    }
 
     fun deleteLobby() {
         lobbies -= this
@@ -44,8 +78,10 @@ class Connection(lobbyId: String? = null) : GamePlay {
         val id: Int =
             if (players.size > 0) players.last().id + 1 else 0 // the player ID will always be 1 greater than previous player had and will be unique
         val player = Player(name, id, session)
-        if (players.isEmpty())
+        if (players.isEmpty()) {
             player.state = PlayerState.LEADER
+            player.isReady = true
+        }
         players += player
         return player // returning added player data class instance
     }
@@ -70,17 +106,25 @@ class Connection(lobbyId: String? = null) : GamePlay {
         return players.find { it.state == PlayerState.LIAR }
     }
 
+    private fun unSetLiar() {
+        getLiar()?.state = PlayerState.PLAYER
+    }
+
     override fun getListOfPlayers(): MutableSet<Player> {
         return players
     }
 
-    override fun startTheGame() {
+    override fun startTheGame(): Boolean {
+        if (players.size < Constants.MIN_PLAYERS)
+            throw InternalExceptions.NotEnoughPlayers()
         gameIsStarted = true
         round = 1
+        setLiar()
+        return true
     }
 
     override fun finishAndGetResult(): List<MutableSet<Player>> {
-        val result = List(Constants.NUMBER_OF_ROUNDS.toInt()) { mutableSetOf<Player>() }
+        val result = List(Constants.NUMBER_OF_ROUNDS) { mutableSetOf<Player>() }
         var i = 0
         while (i < Constants.NUMBER_OF_ROUNDS) {
             val roundAnswers = mutableSetOf<String>()
@@ -98,8 +142,7 @@ class Connection(lobbyId: String? = null) : GamePlay {
                     correctAnswer -> for (player in players)
                         if (player.state != PlayerState.LIAR)
                             player.points++
-                    liarAnswer -> for (player in players)
-                        this.getLiar()!!.points++
+                    liarAnswer -> this.getLiar()!!.points++
                 }
             for (player in players)
                 result[i].add(Player(player, i))
@@ -107,10 +150,13 @@ class Connection(lobbyId: String? = null) : GamePlay {
         }
         gameIsStarted = false
         round = 0
+        unSetLiar()
         return result // returning a table: in a row list of players where each player with only one answer, amount of rows is a NUMBER_OF_ROUNDS, final score is in a last row
     }
 
-    override fun setAnswer(player: Player, answer: String) {
+    override fun setAnswer(player: Player, answer: String): Boolean {
+        if (player.answers.size == round) return false
         players.find { it.session == player.session }!!.answers.add(answer.lowercase().trimMargin())
+        return true
     }
 }

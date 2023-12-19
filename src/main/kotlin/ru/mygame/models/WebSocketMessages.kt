@@ -2,9 +2,9 @@ package ru.mygame.models
 
 import kotlinx.serialization.Serializable
 
-enum class IncomingMsgType{
+enum class IncomingMsgType {
     GAME_START,
-    EARLY_ANSWER,
+    LEADER_DONE,
     REFRESH_QUESTION,
     READY,
     NOT_READY,
@@ -18,19 +18,23 @@ data class WSIncomingMessage(
 )
 
 enum class OutgoingMsgType {
+    EXCEPTION,
     GAME_START,
-    EARLY_ANSWER,
+    YOUR_LIAR,
+    QUESTION,
+    LEADER_DONE,
     READY,
     NOT_READY,
-    NEXT_ROUND,
-    QUESTION,
     ANSWER_ACCEPTED,
+    NEXT_ROUND,
     GAME_OVER,
     GAME_OVER_BY_VOTE
 }
 @Serializable
 data class WSOutgoingMessage(
     val type: OutgoingMsgType,
-    //todo
+    val msg: String = "",
+    val player: Player? = null,
+    val resultTable: List<MutableSet<Player>>? = null
 )
 // todo: @Serializable data class VoteMessage()

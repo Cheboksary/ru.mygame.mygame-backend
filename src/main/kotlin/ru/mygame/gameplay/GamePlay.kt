@@ -15,7 +15,7 @@ interface GamePlay {
 
     fun getListOfPlayers(): MutableSet<Player>
 
-    fun startTheGame()
+    fun startTheGame(): Boolean
 
     fun finishAndGetResult(): List<MutableSet<Player>>
 
@@ -23,5 +23,5 @@ interface GamePlay {
         return Dictionary.getSomeString()
     }
 
-    fun setAnswer(player: Player, answer: String)
+    fun setAnswer(player: Player, answer: String): Boolean
 }

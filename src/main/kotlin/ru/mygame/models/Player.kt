@@ -15,25 +15,25 @@ enum class PlayerState {
 data class Player(
     val name: String,
     var id: Int,
-    var state: PlayerState = PlayerState.PLAYER,
+    var state: PlayerState,
     var points: Int = 0,
     val answers: MutableList<String> = mutableListOf(),
     @Transient
-    val session: DefaultWebSocketSession? = null
+    val session: DefaultWebSocketSession? = null,
+    var isReady: Boolean = false
 ) {
-    constructor(name: String, id: Int, session: DefaultWebSocketSession) : this(
+    constructor(name: String, id: Int, session: DefaultWebSocketSession) : this( // primary constructor
         name = name,
         id = id,
         state = PlayerState.PLAYER,
-        points = 0,
         answers = mutableListOf(),
         session = session
     )
-    constructor(player: Player, numberOfAnswer: Int) : this(
+    constructor(player: Player, numberOfAnswer: Int) : this( // auxiliary constructor for players to get models with one [i] answer
         name = player.name,
         id = player.id,
         state = PlayerState.PLAYER,
-        points = 0,
+        points = player.points,
         answers = mutableListOf(player.answers[numberOfAnswer])
     )
 }

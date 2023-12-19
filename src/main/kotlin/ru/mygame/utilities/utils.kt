@@ -1,7 +1,7 @@
 package ru.mygame.utilities
 
 data object Constants{
-    const val MAX_PLAYERS: Short = 8
-    const val MIN_PLAYERS: Short = 4
-    const val NUMBER_OF_ROUNDS: Short = 7
+    const val MAX_PLAYERS: Int = 8
+    const val MIN_PLAYERS: Int = 4
+    const val NUMBER_OF_ROUNDS: Int = 7
 }

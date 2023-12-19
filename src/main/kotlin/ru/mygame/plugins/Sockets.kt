@@ -7,8 +7,8 @@ import io.ktor.server.websocket.*
 import io.ktor.websocket.*
 import kotlinx.serialization.json.Json
 import ru.mygame.Connection
+import ru.mygame.models.*
 import ru.mygame.models.IncomingMsgType.*
-import ru.mygame.models.WSIncomingMessage
 import ru.mygame.utilities.*
 import java.time.Duration
 
@@ -28,7 +28,7 @@ fun Application.configureSockets() {
                 val playerName = call.parameters["name"] ?: throw InternalExceptions.PlayerNameExpectedException()
                 send("$connectionId || $playerName ") // echo
                 thisLobby = Connection.getLobby(connectionId)
-                sendSerialized("Connected to lobby id ${thisLobby.lobbyId}") // echo
+                sendSerialized("Connected to lobby id ${thisLobby.getLobbyId()}") // echo
                 val thisPlayer = thisLobby.addPlayer(playerName, this)
                 thisLobby.getListOfPlayers().sendAllSerialized(thisLobby.getListOfPlayers()) // echo
 
@@ -36,74 +36,83 @@ fun Application.configureSockets() {
                     frame as? Frame.Text ?: continue
                     val msg: WSIncomingMessage
                     try {
-                        msg = Json.decodeFromString<WSIncomingMessage>(frame.toString())
+                        println(frame.data)
+                        println("//===///===/=/=/=")
+                        println(frame.readText())
+                        msg = Json.decodeFromString<WSIncomingMessage>(frame.readText())
                     } catch (e: IllegalArgumentException) {
                         println("Decode message problem: $e")
                         continue
                     }
                     when (msg.type) {
-                        //todo example:
                         GAME_START -> {
-                            TODO()
+                            if (thisPlayer.state == PlayerState.LEADER && !thisLobby.isGameStarted() && thisLobby.isEveryoneReady()) {
+                                try {
+                                    thisLobby.startTheGame()
+                                } catch (e: InternalExceptions.NotEnoughPlayers) {
+                                    sendSerialized(WSOutgoingMessage(OutgoingMsgType.EXCEPTION, "Not enough players"))
+                                    continue
+                                }
+                                (thisLobby.getLiar()!!.session as WebSocketServerSession).sendSerialized(
+                                    WSOutgoingMessage(OutgoingMsgType.YOUR_LIAR)
+                                )
+                                thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.GAME_START))
+                                val question = thisLobby.getQuestion()
+                                thisPlayer.answers.add(question)
+                                sendSerialized(WSOutgoingMessage(OutgoingMsgType.QUESTION, question))
+                                (thisLobby.getLiar()!!.session as WebSocketServerSession).sendSerialized(
+                                    WSOutgoingMessage(OutgoingMsgType.QUESTION, question)
+                                )
+                            }
+                        }
+                        LEADER_DONE -> {
+                            if (thisPlayer.state == PlayerState.LEADER && thisLobby.isGameStarted())
+                                thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.LEADER_DONE))
+                        }
+                        REFRESH_QUESTION -> {
+                            if (thisPlayer.state == PlayerState.LEADER && thisLobby.isGameStarted() && thisPlayer.answers.isNotEmpty()) {
+                                val question = thisLobby.getQuestion()
+                                thisPlayer.answers.removeLast()
+                                thisPlayer.answers.add(question)
+                                sendSerialized(WSOutgoingMessage(OutgoingMsgType.QUESTION, question))
+                                (thisLobby.getLiar()!!.session as WebSocketServerSession).sendSerialized(
+                                    WSOutgoingMessage(OutgoingMsgType.QUESTION, question)
+                                )
+                            }
+                        }
+                        READY -> {
+                            if (thisPlayer.state != PlayerState.LEADER && !thisPlayer.isReady) {
+                                thisLobby.markPlayerReady(this)
+                                thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.READY,"",thisPlayer))
+                            }
+                        }
+                        NOT_READY -> {
+                            if (thisPlayer.state != PlayerState.LEADER && thisPlayer.isReady) {
+                                thisLobby.markPlayerNotReady(this)
+                                thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.NOT_READY,"",thisPlayer))
+                            }
                         }
                         ANSWER -> {
-                            TODO()
+                            if (thisPlayer.state == PlayerState.LEADER) continue
+                            if (thisLobby.setAnswer(thisPlayer, msg.msg))
+                                sendSerialized(WSOutgoingMessage(OutgoingMsgType.ANSWER_ACCEPTED,msg.msg))
+                            // todo debug there
+                            if (thisLobby.isEveryoneAnswered())
+                                if (thisLobby.nextRound()) {
+                                    thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.NEXT_ROUND))
+                                    val question = thisLobby.getQuestion()
+                                    thisLobby.getLeader().answers.add(question)
+                                    (thisLobby.getLeader().session as WebSocketServerSession).sendSerialized(WSOutgoingMessage(OutgoingMsgType.QUESTION,question))
+                                    (thisLobby.getLiar()!!.session as WebSocketServerSession).sendSerialized(WSOutgoingMessage(OutgoingMsgType.QUESTION,question))
+                                }
+                                else {
+                                    val resultTable = thisLobby.finishAndGetResult()
+                                    thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.GAME_OVER,"",null, resultTable))
+                                }
                         }
-
-                        READY -> TODO()
-                        NOT_READY -> TODO()
-                        REFRESH_QUESTION -> TODO()
-                        EARLY_ANSWER -> TODO()
                         VOTE_KICK -> TODO()
                     }
                 }
-                /*
-                if (thisPlayer.state == PlayerState.LEADER) {                         ////
-                    for (frame in incoming) {
-                        frame as? Frame.Text ?: continue
-                        if (frame.toString() == "start") {     ////
-                            thisLobby.gameIsStarted = true
-                            thisLobby.getListOfPlayers().sendAllSerialized("Started")
-                            break
-                        }
-                    }
-                } else
-                    while(!thisLobby.gameIsStarted) {                                 ////     sketches
-                        continue
-                    }
-
-                while (thisLobby.round <= Constants.NUMBER_OF_ROUNDS) {
-                    sendSerialized(thisLobby.round)
-                    if (thisPlayer.state == PlayerState.LEADER) { // LEADER
-                        thisLobby.round++
-                        val question = thisLobby.getQuestion()
-                        thisPlayer.answers.add(question)
-                        sendSerialized(question)
-                    }
-                    if (thisPlayer.state == PlayerState.LIAR) // LIAR
-                        for (frame in incoming){
-                            if (thisLobby.getListOfPlayers().first().answers[thisLobby.round-1].isNotEmpty()) {
-                                sendSerialized(thisLobby.getListOfPlayers().first().answers[thisLobby.round - 1])
-                                break
-                            }
-                        }
-
-                    for (frame in incoming) { // PLAYER , LEADER , LIAR
-                        frame as? Frame.Text ?: continue
-                        if (thisLobby.getListOfPlayers().all { it.answers.size == thisLobby.round })
-                            break
-                        if (thisPlayer.state == PlayerState.LEADER)
-                            continue
-                        if (thisPlayer.answers.size == thisLobby.round)
-                            continue
-                        thisPlayer.answers.add(frame.toString())
-                    }
-                }
-                thisLobby.getListOfPlayers().sendAllSerialized(thisLobby.getListOfPlayers())
-                thisLobby.gameIsStarted = false
-                thisLobby.round = 0
-                                                                                       //// sketches
-                */
             } catch (e: InternalExceptions.PlayerNameExpectedException) {
                 this.close(
                     CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Parameter name expected")
