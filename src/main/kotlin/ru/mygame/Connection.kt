@@ -50,12 +50,19 @@ class Connection(lobbyId: String? = null) : GamePlay {
 
     private var gameIsStarted = false
     private var round = 0
+    private var leaderIsDone = false
 
     fun isGameStarted() = gameIsStarted
 
+    fun isLeaderDone() = leaderIsDone
+
+    fun markLeaderIsDone() {
+        leaderIsDone = true
+    }
+
     fun isEveryoneAnswered(): Boolean {
         for (player in players) {
-            if (player.answers.size <= round)
+            if (player.answers.size < round)
                 return false
         }
         return true
@@ -65,6 +72,7 @@ class Connection(lobbyId: String? = null) : GamePlay {
         if (round == Constants.NUMBER_OF_ROUNDS)
             return false
         round++
+        leaderIsDone = false
         return true
     }
 
@@ -126,6 +134,8 @@ class Connection(lobbyId: String? = null) : GamePlay {
     override fun finishAndGetResult(): List<MutableSet<Player>> {
         val result = List(Constants.NUMBER_OF_ROUNDS) { mutableSetOf<Player>() }
         var i = 0
+        var fastResultPlayersPoints = 0
+        var fastResultLiarPoints = 0
         while (i < Constants.NUMBER_OF_ROUNDS) {
             val roundAnswers = mutableSetOf<String>()
             var liarAnswer = ""
@@ -140,9 +150,14 @@ class Connection(lobbyId: String? = null) : GamePlay {
             if (roundAnswers.size == 1)
                 when (roundAnswers.toString()) {
                     correctAnswer -> for (player in players)
-                        if (player.state != PlayerState.LIAR)
+                        if (player.state != PlayerState.LIAR) {
                             player.points++
-                    liarAnswer -> this.getLiar()!!.points++
+                            fastResultPlayersPoints++
+                        }
+                    liarAnswer -> {
+                        this.getLiar()!!.points++
+                        fastResultLiarPoints++
+                    }
                 }
             for (player in players)
                 result[i].add(Player(player, i))
@@ -150,6 +165,7 @@ class Connection(lobbyId: String? = null) : GamePlay {
         }
         gameIsStarted = false
         round = 0
+        leaderIsDone = false
         unSetLiar()
         return result // returning a table: in a row list of players where each player with only one answer, amount of rows is a NUMBER_OF_ROUNDS, final score is in a last row
     }

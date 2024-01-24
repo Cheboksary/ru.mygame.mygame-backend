@@ -66,11 +66,15 @@ fun Application.configureSockets() {
                             }
                         }
                         LEADER_DONE -> {
-                            if (thisPlayer.state == PlayerState.LEADER && thisLobby.isGameStarted())
+                            if (thisPlayer.state == PlayerState.LEADER && thisLobby.isGameStarted()) {
+                                thisLobby.markLeaderIsDone()
                                 thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.LEADER_DONE))
+                            }
                         }
                         REFRESH_QUESTION -> {
-                            if (thisPlayer.state == PlayerState.LEADER && thisLobby.isGameStarted() && thisPlayer.answers.isNotEmpty()) {
+                            //todo: add leader is not done check
+                            // done
+                            if (thisPlayer.state == PlayerState.LEADER && thisLobby.isGameStarted() && thisPlayer.answers.isNotEmpty() && !thisLobby.isLeaderDone()) {
                                 val question = thisLobby.getQuestion()
                                 thisPlayer.answers.removeLast()
                                 thisPlayer.answers.add(question)
@@ -93,10 +97,11 @@ fun Application.configureSockets() {
                             }
                         }
                         ANSWER -> {
-                            if (thisPlayer.state == PlayerState.LEADER) continue
+                            //todo: add leader is done check
+                            // done
+                            if (thisPlayer.state == PlayerState.LEADER || !thisLobby.isLeaderDone()) continue
                             if (thisLobby.setAnswer(thisPlayer, msg.msg))
                                 sendSerialized(WSOutgoingMessage(OutgoingMsgType.ANSWER_ACCEPTED,msg.msg))
-                            // todo debug there
                             if (thisLobby.isEveryoneAnswered())
                                 if (thisLobby.nextRound()) {
                                     thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.NEXT_ROUND))
@@ -106,8 +111,13 @@ fun Application.configureSockets() {
                                     (thisLobby.getLiar()!!.session as WebSocketServerSession).sendSerialized(WSOutgoingMessage(OutgoingMsgType.QUESTION,question))
                                 }
                                 else {
+                                    //todo: hold lair's and leader's states until results are sent
+                                    // done
+                                    //todo: add sending short result who won
                                     val resultTable = thisLobby.finishAndGetResult()
                                     thisLobby.getListOfPlayers().sendAllSerialized(WSOutgoingMessage(OutgoingMsgType.GAME_OVER,"",null, resultTable))
+                                    //todo: do unready all players
+                                    // done
                                 }
                         }
                         VOTE_KICK -> TODO()

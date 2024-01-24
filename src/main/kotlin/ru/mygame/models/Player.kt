@@ -32,8 +32,9 @@ data class Player(
     constructor(player: Player, numberOfAnswer: Int) : this( // auxiliary constructor for players to get models with one [i] answer
         name = player.name,
         id = player.id,
-        state = PlayerState.PLAYER,
+        state = player.state,
         points = player.points,
-        answers = mutableListOf(player.answers[numberOfAnswer])
+        answers = mutableListOf(player.answers[numberOfAnswer]),
+        isReady = false
     )
 }
