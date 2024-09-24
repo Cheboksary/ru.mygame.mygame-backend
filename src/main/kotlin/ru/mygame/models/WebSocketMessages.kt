@@ -18,6 +18,7 @@ data class WSIncomingMessage(
 )
 
 enum class OutgoingMsgType {
+    LOBBY_STATE,
     EXCEPTION,
     GAME_START,
     YOUR_LIAR,
@@ -28,11 +29,15 @@ enum class OutgoingMsgType {
     ANSWER_ACCEPTED,
     NEXT_ROUND,
     GAME_OVER,
+    LIAR_WON,
+    PLAYERS_WON,
     GAME_OVER_BY_VOTE
 }
 @Serializable
 data class WSOutgoingMessage(
     val type: OutgoingMsgType,
+    val lobbyId: String = "",
+    val playersList: List<Player>? = null,
     val msg: String = "",
     val player: Player? = null,
     val resultTable: List<MutableSet<Player>>? = null
