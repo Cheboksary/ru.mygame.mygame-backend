@@ -110,8 +110,6 @@ fun Application.configureSockets() {
                             }
                         }
                         REFRESH_QUESTION -> {
-                            //todo: add leader is not done check
-                            // done
                             val thisPlayer = thisLobby.playerBySession(this)
                             if (thisPlayer.state == PlayerState.LEADER && thisLobby.isGameStarted() && thisPlayer.answers.isNotEmpty() && !thisLobby.isLeaderDone()) {
                                 val question = thisLobby.getQuestion()
