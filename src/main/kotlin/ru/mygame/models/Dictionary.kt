@@ -1,10 +1,8 @@
 package ru.mygame.models
 
-import java.io.File
-
 object Dictionary {
-    private const val FILE_PATH = "assets/diction.txt"
-    private val dictionary = File(FILE_PATH).readLines()
+    private val res = ClassLoader.getSystemResourceAsStream("dictionary.txt")
+    private val dictionary = res?.bufferedReader()?.readLines() ?: throw Exception("the dictionary resource could not be found or the resource is in a package that is not opened unconditionally")
     fun getSomeString(): String {
         return dictionary.random()
     }
